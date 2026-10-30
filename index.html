@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Blindspot Admin</title>
+
+<!-- PWA SETTINGS -->
+<link rel="manifest" href="./admin-manifest.json" />
+<meta name="theme-color" content="#000000" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="BS Admin" />
+<link rel="apple-touch-icon" href="./icon-192.png" />
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  
+  /* BACKGROUND SETTINGS */
+  body { 
+    background-color: #000000;
+    background-image: url('bg-dark.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    color: #fff; 
+    padding: 20px; 
+    min-height: 100vh;
+  }
+
+  /* GLASSMORPHISM CARDS */
+  .glass {
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 255, 102, 0.2);
+    box-shadow: 0 0 20px rgba(0, 255, 102, 0.1);
+    border-radius: 15px;
+  }
+
+  /* GHOST GREEN TEXT & GLOW */
+  h1, h2, h3, th, .stat-card p, .category-name, .category-count {
+    color: #00ff66;
+    text-shadow: 0 0 5px rgba(0, 255, 102, 0.8), 0 0 10px rgba(0, 255, 102, 0.5), 0 0 20px rgba(0, 255, 102, 0.3);
+  }
+  
+  .header h1 { font-size: 24px; }
+  
+  /* LOGIN */
+  #loginScreen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 20px; }
+  .login-box { padding: 40px; width: 100%; max-width: 400px; text-align: center; }
+  .login-box h1 { margin-bottom: 20px; }
+  .login-box input { width: 100%; padding: 15px; border-radius: 10px; border: 1px solid rgba(0, 255, 102, 0.3); background: rgba(0,0,0,0.8); color: #00ff66; font-size: 16px; margin-bottom: 20px; outline: none; transition: 0.3s; }
+  .login-box input:focus { border-color: #00ff66; box-shadow: 0 0 15px rgba(0, 255, 102, 0.5); }
+  .login-box button { width: 100%; padding: 15px; border-radius: 10px; border: 1px solid #00ff66; background: rgba(0, 255, 102, 0.1); color: #00ff66; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; text-shadow: 0 0 5px rgba(0,255,102,0.8); }
+  .login-box button:hover { background: rgba(0, 255, 102, 0.3); box-shadow: 0 0 20px rgba(0, 255, 102, 0.6); }
+
+  /* DASHBOARD */
+  #dashboard { display: none; flex-direction: column; gap: 20px; max-width: 1200px; margin: 0 auto; }
+  .header { display: flex; justify-content: space-between; align-items: center; padding: 20px; }
+  .logout-btn { background: transparent; border: 1px solid #FF3B30; color: #FF3B30; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+  .logout-btn:hover { background: rgba(255,59,48,0.2); box-shadow: 0 0 15px rgba(255,59,48,0.6); }
+  
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+  .stat-card { padding: 20px; text-align: center; }
+  .stat-card h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; opacity: 0.8; }
+  .stat-card p { font-size: 32px; font-weight: bold; }
+
+  .section-box { padding: 20px; }
+  .section-box h2 { margin-bottom: 15px; font-size: 18px; }
+  
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(0, 255, 102, 0.1); font-size: 14px; }
+  td { color: #fff; }
+  
+  .notify-box { display: flex; gap: 10px; }
+  .notify-box input { flex: 1; padding: 15px; border-radius: 10px; border: 1px solid rgba(0, 255, 102, 0.3); background: rgba(0,0,0,0.8); color: #fff; outline: none; }
+  .notify-box input:focus { border-color: #00ff66; box-shadow: 0 0 15px rgba(0, 255, 102, 0.5); }
+  .notify-box button { padding: 15px 30px; border-radius: 10px; border: none; background: #00C853; color: #000; font-weight: bold; cursor: pointer; box-shadow: 0 0 15px rgba(0,200,83,0.4); transition: 0.3s; }
+  .notify-box button:hover { background: #00ff66; box-shadow: 0 0 25px rgba(0,255,102,0.8); }
+
+  .category-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .category-name { width: 150px; font-weight: bold; text-transform: capitalize; }
+  .category-fill-wrap { flex: 1; background: rgba(0,0,0,0.8); border-radius: 10px; height: 20px; overflow: hidden; border: 1px solid rgba(0, 255, 102, 0.2); }
+  .category-fill { height: 100%; background: linear-gradient(90deg, #00ff66, #008f39); border-radius: 10px; box-shadow: 0 0 10px rgba(0, 255, 102, 0.8); }
+  .category-count { width: 40px; text-align: right; font-weight: bold; }
+
+  /* COUNTRY FLAGS */
+  .flag { font-size: 20px; margin-right: 8px; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+  <div class="login-box glass">
+    <h1>BLINDSPOT ADMIN</h1>
+    <input type="password" id="adminPass" placeholder="Enter Admin Password" />
+    <button onclick="login()">Login</button>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="header glass">
+    <h1>👁 Blindspot Control Panel</h1>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card glass">
+      <h2>Total Users</h2>
+      <p id="totalUsers">0</p>
+    </div>
+    <div class="stat-card glass">
+      <h2>🌍 Total Countries</h2>
+      <p id="totalCountries">0</p>
+    </div>
+    <div class="stat-card glass">
+      <h2>Total Spots</h2>
+      <p id="totalSpots">0</p>
+    </div>
+  </div>
+
+  <!-- COUNTRY DEMOGRAPHICS -->
+  <div class="section-box glass">
+    <h2>🌎 Country Demographics</h2>
+    <div style="overflow-x: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Country</th>
+            <th>Users</th>
+            <th>Percentage</th>
+          </tr>
+        </thead>
+        <tbody id="countryTable">
+          <tr><td colspan="3" style="text-align: center; color: #888;">Loading data...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TOP CATEGORIES -->
+  <div class="section-box glass">
+    <h2>🎯 Top Categories Picked by Users</h2>
+    <div id="topCategoriesBox">
+      <p style="color: #888;">Loading data...</p>
+    </div>
+  </div>
+
+  <!-- TOP REACTIONS -->
+  <div class="section-box glass">
+    <h2>🔥 Most Reacted Categories</h2>
+    <div style="overflow-x: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>😲 Mind Blown</th>
+            <th>💡 Learned</th>
+            <th>❤️ Loved</th>
+          </tr>
+        </thead>
+        <tbody id="reactionsTable">
+          <tr><td colspan="4" style="text-align: center; color: #888;">Loading data...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section-box glass">
+    <h2>📢 Send Push Notification</h2>
+    <div class="notify-box">
+      <input type="text" id="notifyTitle" placeholder="Notification Title (e.g. New Truth!)" />
+      <input type="text" id="notifyMsg" placeholder="Notification Message..." />
+      <button onclick="sendPush()">Send Push</button>
+    </div>
+    <p style="color:#666; font-size:12px; margin-top:10px;">*Note: Push will only send to users who enabled notifications.</p>
+  </div>
+
+  <div class="section-box glass">
+    <h2>👥 Recent Users</h2>
+    <div style="overflow-x: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>User ID</th>
+            <th>Country</th>
+            <th>Gender</th>
+            <th>Last Seen</th>
+          </tr>
+        </thead>
+        <tbody id="usersTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section-box glass">
+    <h2>📝 Recent Spots</h2>
+    <div style="overflow-x: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Spot Name</th>
+            <th>Category</th>
+            <th>Author</th>
+            <th>Type</th>
+          </tr>
+        </thead>
+        <tbody id="spotsTable"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const CONFIG = {
+  SUPABASE_URL: 'https://ukpufxrkezpkjnnqzdem.supabase.co',
+  SUPABASE_KEY: 'sb_publishable_2Yg_zJGs9o5KIue57PjaYw_JVOI5UYE'
+};
+
+const sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
+const ADMIN_PASSWORD = 'blindspot2024';
+
+// FLAG MAP (For all countries)
+const getFlag = (countryName) => {
+  if (!countryName) return '🌍';
+  const flags = {
+    'Nigeria': '🇳🇬', 'United States': '🇺🇸', 'United Kingdom': '🇬🇧', 'Canada': '🇨🇦', 
+    'Ghana': '🇬🇭', 'South Africa': '🇿🇦', 'Kenya': '🇰🇪', 'India': '🇮🇳', 
+    'Germany': '🇩🇪', 'France': '🇫🇷', 'Australia': '🇦🇺', 'Brazil': '🇧🇷',
+    'China': '🇨🇳', 'Japan': '🇯🇵', 'Russia': '🇷🇺', 'Mexico': '🇲🇽',
+    'Spain': '🇪🇸', 'Italy': '🇮🇹', 'Netherlands': '🇳🇱', 'Ireland': '🇮🇪',
+    'New Zealand': '🇳🇿', 'Philippines': '🇵🇭', 'Pakistan': '🇵🇰', 'Bangladesh': '🇧🇩',
+    'Egypt': '🇪🇬', 'Morocco': '🇲🇦', 'Saudi Arabia': '🇸🇦', 'UAE': '🇦🇪',
+    'Turkey': '🇹🇷', 'Argentina': '🇦🇷', 'Colombia': '🇨🇴', 'Chile': '🇨🇱',
+    'Sweden': '🇸🇪', 'Norway': '🇳🇴', 'Denmark': '🇩🇰', 'Finland': '🇫🇮',
+    'Poland': '🇵🇱', 'Portugal': '🇵🇹', 'Greece': '🇬🇷', 'Belgium': '🇧🇪',
+    'Switzerland': '🇨🇭', 'Austria': '🇦🇹', 'Singapore': '🇸🇬', 'Malaysia': '🇲🇾',
+    'Indonesia': '🇮🇩', 'Thailand': '🇹🇭', 'Vietnam': '🇻🇳', 'South Korea': '🇰🇷'
+  };
+  return flags[countryName] || '🌍';
+};
+
+function login() {
+  const pass = document.getElementById('adminPass').value;
+  if (pass === ADMIN_PASSWORD) {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'flex';
+    loadDashboard();
+  } else {
+    alert('Wrong Password!');
+  }
+}
+
+function logout() {
+  location.reload();
+}
+
+async function loadDashboard() {
+  try {
+    // 1. Get Users
+    const { data: users, error } = await sb.from('user_preferences').select('*').order('last_seen', { ascending: false }).limit(1000);
+    if (error) throw error;
+
+    document.getElementById('totalUsers').textContent = users.length;
+    
+    let countryCounts = {};
+    let catCounts = {};
+    
+    const usersTable = document.getElementById('usersTable');
+    usersTable.innerHTML = '';
+
+    users.forEach(user => {
+      // Count Countries
+      const c = user.country || 'Unknown';
+      countryCounts[c] = (countryCounts[c] || 0) + 1;
+
+      // Count Categories
+      if (user.categories && Array.isArray(user.categories)) {
+        user.categories.forEach(cat => {
+          catCounts[cat] = (catCounts[cat] || 0) + 1;
+        });
+      }
+
+      const date = user.last_seen ? new Date(user.last_seen).toLocaleString() : 'Never';
+      const flag = getFlag(c);
+      
+      usersTable.innerHTML += `
+        <tr>
+          <td style="font-family: monospace; font-size: 12px;">${user.user_id.substring(0,8)}...</td>
+          <td><span class="flag">${flag}</span> ${c}</td>
+          <td>${user.gender || '-'}</td>
+          <td>${date}</td>
+        </tr>
+      `;
+    });
+
+    // 2. Render Country Demographics
+    const sortedCountries = Object.keys(countryCounts).map(key => ({ name: key, count: countryCounts[key] })).sort((a, b) => b.count - a.count);
+    document.getElementById('totalCountries').textContent = sortedCountries.filter(c => c.name !== 'Unknown').length;
+    
+    const countryTable = document.getElementById('countryTable');
+    countryTable.innerHTML = '';
+    
+    if (sortedCountries.length === 0) {
+      countryTable.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #888;">No countries yet.</td></tr>';
+    } else {
+      sortedCountries.forEach(c => {
+        const percentage = ((c.count / users.length) * 100).toFixed(1);
+        const flag = getFlag(c.name);
+        countryTable.innerHTML += `
+          <tr>
+            <td><span class="flag">${flag}</span> ${c.name}</td>
+            <td>${c.count} users</td>
+            <td>
+              <div style="background: rgba(0,0,0,0.5); border-radius: 5px; height: 10px; width: 100px; display: inline-block; vertical-align: middle; margin-right: 10px;">
+                <div style="background: #00ff66; height: 100%; width: ${percentage}%; border-radius: 5px; box-shadow: 0 0 10px #00ff66;"></div>
+              </div>
+              ${percentage}%
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    // 3. Render Top Categories
+    const sortedCats = Object.keys(catCounts).map(key => ({ name: key, count: catCounts[key] })).sort((a, b) => b.count - a.count);
+    const topCatBox = document.getElementById('topCategoriesBox');
+    topCatBox.innerHTML = '';
+    
+    if (sortedCats.length === 0) {
+      topCatBox.innerHTML = '<p style="color: #888; font-size: 14px;">No categories picked yet.</p>';
+    } else {
+      const maxCount = sortedCats[0].count;
+      sortedCats.forEach(cat => {
+        const percentage = (cat.count / maxCount) * 100;
+        topCatBox.innerHTML += `
+          <div class="category-bar">
+            <div class="category-name">${cat.name === 'all' ? 'Everything' : cat.name}</div>
+            <div class="category-fill-wrap">
+              <div class="category-fill" style="width: ${percentage}%"></div>
+            </div>
+            <div class="category-count">${cat.count}</div>
+          </div>
+        `;
+      });
+    }
+
+    // 4. Get Reactions Summary
+    const { data: reactions, error: reactErr } = await sb.from('card_reactions_summary').select('*');
+    if (!reactErr && reactions) {
+      const reactTable = document.getElementById('reactionsTable');
+      reactTable.innerHTML = '';
+      
+      let reactCats = {};
+      reactions.forEach(r => {
+         if(!reactCats[r.category]) reactCats[r.category] = { blown: 0, knew: 0, love: 0 };
+         reactCats[r.category].blown += (r.blown_count || 0);
+         reactCats[r.category].knew += (r.knew_count || 0);
+         reactCats[r.category].love += (r.love_count || 0);
+      });
+
+      const sortedReactions = Object.keys(reactCats).map(key => ({ name: key, ...reactCats[key] })).sort((a, b) => (b.blown + b.knew + b.love) - (a.blown + a.knew + a.love));
+
+      if (sortedReactions.length === 0) {
+         reactTable.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #888;">No reactions yet.</td></tr>';
+      } else {
+        sortedReactions.forEach(cat => {
+          reactTable.innerHTML += `
+            <tr>
+              <td style="text-transform: capitalize; font-weight: bold;">${cat.name}</td>
+              <td>😲 ${cat.blown}</td>
+              <td>💡 ${cat.knew}</td>
+              <td>❤️ ${cat.love}</td>
+            </tr>
+          `;
+        });
+      }
+    }
+
+    // 5. Get Spots
+    const { data: spots, error: spotErr } = await sb.from('user_spots').select('*').order('created_at', { ascending: false }).limit(50);
+    if (!spotErr) {
+      document.getElementById('totalSpots').textContent = spots.length;
+      const spotsTable = document.getElementById('spotsTable');
+      spotsTable.innerHTML = '';
+      
+      spots.forEach(spot => {
+        spotsTable.innerHTML += `
+          <tr>
+            <td>${spot.spot_name || spot.what.substring(0, 30)}...</td>
+            <td>${spot.category}</td>
+            <td>${spot.author_name || 'Anonymous'}</td>
+            <td>${spot.is_daily_locked ? '🤫 Forbidden' : '✅ Normal'}</td>
+          </tr>
+        `;
+      });
+    }
+
+  } catch (err) {
+    alert('Error loading dashboard: ' + err.message);
+  }
+}
+
+async function sendPush() {
+  const title = document.getElementById('notifyTitle').value;
+  const msg = document.getElementById('notifyMsg').value;
+
+  if (!title || !msg) {
+    alert('Please enter both title and message');
+    return;
+  }
+
+  const btn = event.target;
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('https://ukpufxrkezpkjnnqzdem.supabase.co/functions/v1/send_push', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + CONFIG.SUPABASE_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ title: title, body: msg })
+    });
+
+    const data = await res.json();
+    alert(JSON.stringify(data));
+    
+  } catch (err) {
+    alert('Push failed: ' + err.message);
+  }
+
+  btn.textContent = 'Send Push';
+  btn.disabled = false;
+}
+
+// Register Service Worker for PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./admin-sw.js')
+      .then(reg => console.log('Admin SW registered'))
+      .catch(err => console.log('Admin SW failed', err));
+  });
+}
+</script>
+</body>
+</html>
